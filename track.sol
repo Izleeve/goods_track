@@ -1,79 +1,112 @@
-// SPDX-License-Identifier: MIT 
-pragma solidity ^0.8.0; 
-contract SupplyChain { 
-// Address of the admin 
-address public admin; 
-// Mapping for updater roles 
-mapping(address => bool) public isUpdater; 
- // Struct to hold shipment details 
-    struct Shipment { 
-        string description; 
-        string status; 
-        address lastUpdatedBy; 
-    } 
- 
-    // Mapping to store shipments by ID 
-    mapping(uint256 => Shipment) public shipments; 
- 
-    // Event emitted when a shipment's status is updated 
-    event ShipmentStatusUpdated( 
-        uint256 indexed shipmentId, 
-        string status, 
-        address indexed updatedBy 
-    ); 
- 
-    // Event emitted when an updater is added or removed 
-    event UpdaterRoleChanged(address indexed updater, bool isAuthorized); 
- 
-    // Modifier to restrict access to admin 
-    modifier onlyAdmin() { 
-        require(msg.sender == admin, "Not an admin"); 
-        _; } 
- 
-    // Modifier to restrict access to updaters 
-    modifier onlyUpdater() { 
-        require(isUpdater[msg.sender], "Not an updater"); 
-        _; 
-    } 
- 
-    // Constructor to set the deployer as the admin 
-    constructor() { 
-        admin = msg.sender; 
-    } 
- 
-    // Function to add an updater (only callable by admin) 
-    function addUpdater(address updater) external onlyAdmin { 
-        isUpdater[updater] = true; 
-        emit UpdaterRoleChanged(updater, true); 
-    } 
- 
-    // Function to remove an updater (only callable by admin) 
-    function removeUpdater(address updater) external onlyAdmin { 
-        isUpdater[updater] = false; 
-        emit UpdaterRoleChanged(updater, false); 
-    } 
- 
-    // Function to update a shipment's status (only callable by updaters) 
-     function updateShipmentStatus(uint256 shipmentId,
-     string memory description,
-     string memory status)
-    public onlyUpdater { 
-        shipments[shipmentId] = Shipment({ 
-            description: description, 
-            status: status, 
-            lastUpdatedBy: msg.sender 
-        }); 
- 
-        emit ShipmentStatusUpdated(shipmentId, status, msg.sender); 
-    } 
- 
-    // Function to view shipment details 
-    function getShipment(uint256 shipmentId) public  view returns ( 
-            string memory description, 
-            string memory status, 
-            address lastUpdatedBy 
-        )  { 
-        Shipment memory shipment = shipments[shipmentId]; 
-        return (shipment.description, shipment.status, shipment.lastUpdatedBy); 
-    } 
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract LogisticsManager {
+    // ========================
+    // State Variables
+    // ========================
+    address public owner; // Address of the contract owner
+    mapping(address => bool) public isAuthorizedUpdater; // Authorized updaters mapping
+
+    // Struct for package details
+    struct Package {
+        string details;
+        string currentStatus;
+        address lastModifiedBy;
+    }
+
+    mapping(uint256 => Package) public packages; // Mapping of package ID to package details
+
+    // ========================
+    // Events
+    // ========================
+    event PackageStatusModified(
+        uint256 indexed packageId,
+        string newStatus,
+        address indexed modifiedBy
+    );
+
+    event UpdaterRoleToggled(address indexed updater, bool isGranted);
+
+    // ========================
+    // Modifiers
+    // ========================
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Access restricted to owner only");
+        _;
+    }
+
+    modifier onlyAuthorizedUpdater() {
+        require(isAuthorizedUpdater[msg.sender], "Access restricted to updaters only");
+        _;
+    }
+
+    // ========================
+    // Constructor
+    // ========================
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // ========================
+    // Owner-Only Functions
+    // ========================
+
+    /// @notice Grants updater role to an address
+    /// @param updater Address to be granted the updater role
+    function grantUpdaterRole(address updater) external onlyOwner {
+        isAuthorizedUpdater[updater] = true;
+        emit UpdaterRoleToggled(updater, true);
+    }
+
+    /// @notice Revokes updater role from an address
+    /// @param updater Address to be revoked the updater role
+    function revokeUpdaterRole(address updater) external onlyOwner {
+        isAuthorizedUpdater[updater] = false;
+        emit UpdaterRoleToggled(updater, false);
+    }
+
+    // ========================
+    // Updater-Only Functions
+    // ========================
+
+    /// @notice Updates the status and details of a package
+    /// @param packageId ID of the package
+    /// @param details Description of the package
+    /// @param newStatus New status of the package
+    function modifyPackageStatus(
+        uint256 packageId,
+        string memory details,
+        string memory newStatus
+    ) public onlyAuthorizedUpdater {
+        packages[packageId] = Package({
+            details: details,
+            currentStatus: newStatus,
+            lastModifiedBy: msg.sender
+        });
+
+        emit PackageStatusModified(packageId, newStatus, msg.sender);
+    }
+
+    // ========================
+    // Public View Functions
+    // ========================
+
+    /// @notice Retrieves details of a package
+    /// @param packageId ID of the package
+    /// @return details Package description
+    /// @return currentStatus Current status of the package
+    /// @return lastModifiedBy Address of the last updater
+    function viewPackageDetails(uint256 packageId)
+        public
+        view
+        returns (
+            string memory details,
+            string memory currentStatus,
+            address lastModifiedBy
+        )
+    {
+        Package memory packageInfo = packages[packageId];
+        return (packageInfo.details, packageInfo.currentStatus, packageInfo.lastModifiedBy);
+    }
 }
